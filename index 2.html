@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Mon Budget"/>
+  <meta name="theme-color" content="#ffffff"/>
+  <title>Mon Budget</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:'DM Sans',sans-serif;background:#F7F6FC;color:#3D3D5C}
+    input,select,button{font-family:'DM Sans',sans-serif}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ── Data ──────────────────────────────────────────────────────
+const REVENU=1254,COURSES_MIN=100,COURSES_MAX=200;
+const MONTHS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const SHORT_M=["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+const CUR_M=6,CUR_Y=2026;
+const STORAGE_KEY="monbudget_v2";
+
+function guessEmoji(label){
+  const l=label.toLowerCase();
+  if(l.includes("disney")||l.includes("netflix"))return"🎬";
+  if(l.includes("spotify")||l.includes("deezer"))return"🎵";
+  if(l.includes("électricité")||l.includes("electricite")||l.includes("octopus")||l.includes("edf")||l.includes("enedis"))return"⚡";
+  if(l.includes("gaz"))return"🔥";
+  if(l.includes("eau"))return"💧";
+  if(l.includes("internet")||l.includes("fibre")||l.includes("box"))return"📡";
+  if(l.includes("téléphone")||l.includes("mobile")||l.includes("bouygues")||l.includes("sfr")||l.includes("orange")||l.includes("free"))return"📱";
+  if(l.includes("assurance voiture")||l.includes("matmut")||l.includes("maif")||l.includes("axa"))return"🚗";
+  if(l.includes("assurance vie"))return"🛡️";
+  if(l.includes("assurance"))return"🛡️";
+  if(l.includes("mutuelle")||l.includes("santé"))return"💊";
+  if(l.includes("espèces")||l.includes("especes")||l.includes("cash"))return"💵";
+  if(l.includes("courses")||l.includes("carrefour")||l.includes("lidl")||l.includes("leclerc")||l.includes("aldi")||l.includes("marché")||l.includes("supermarché"))return"🛒";
+  if(l.includes("livret")||l.includes("pel"))return"🏦";
+  if(l.includes("restaurant")||l.includes("resto"))return"🍽️";
+  if(l.includes("cinéma")||l.includes("cinema"))return"🎥";
+  if(l.includes("école")||l.includes("cantine"))return"🎓";
+  if(l.includes("sport")||l.includes("salle")||l.includes("gym"))return"🏋️";
+  if(l.includes("voyage")||l.includes("vacances"))return"✈️";
+  if(l.includes("prime"))return"📦";
+  if(l.includes("canal"))return"📺";
+  return"💳";
+}
+
+const DEFAULT_DATA={
+  "2026-4":[
+    {id:"m4-1",label:"Disney+",amount:17.98,bucket:"obligatoires",dueDate:"2026-05-01",paid:true},
+    {id:"m4-2",label:"Spotify",amount:17.20,bucket:"obligatoires",dueDate:"2026-05-02",paid:true},
+    {id:"m4-3",label:"Assurance voiture Matmut",amount:81.32,bucket:"obligatoires",dueDate:"2026-05-05",paid:true},
+    {id:"m4-4",label:"Électricité Octopus",amount:73.79,bucket:"obligatoires",dueDate:"2026-05-03",paid:true},
+    {id:"m4-5",label:"Bouygues téléphone",amount:74.97,bucket:"obligatoires",dueDate:"2026-05-30",paid:true},
+    {id:"m4-6",label:"Assurance vie",amount:30.00,bucket:"obligatoires",dueDate:"2026-05-30",paid:true},
+    {id:"m4-7",label:"Courses mai",amount:178.00,bucket:"obligatoires",dueDate:null,paid:true},
+    {id:"m4-8",label:"Restaurant",amount:38.00,bucket:"loisirs",dueDate:null,paid:true},
+    {id:"m4-9",label:"Livret A",amount:100.00,bucket:"epargne",dueDate:"2026-05-05",paid:true},
+    {id:"m4-10",label:"Assurance vie enfant",amount:50.00,bucket:"epargne",dueDate:"2026-05-05",paid:true},
+    {id:"m4-11",label:"Espèces mai",amount:75.00,bucket:"especes",dueDate:null,paid:true},
+  ],
+  "2026-5":[
+    {id:"m5-1",label:"Disney+",amount:17.98,bucket:"obligatoires",dueDate:"2026-06-01",paid:true},
+    {id:"m5-2",label:"Spotify",amount:17.20,bucket:"obligatoires",dueDate:"2026-06-02",paid:true},
+    {id:"m5-3",label:"Assurance voiture Matmut",amount:81.32,bucket:"obligatoires",dueDate:"2026-06-05",paid:true},
+    {id:"m5-4",label:"Électricité Octopus",amount:73.79,bucket:"obligatoires",dueDate:"2026-06-03",paid:true},
+    {id:"m5-5",label:"Bouygues téléphone",amount:74.97,bucket:"obligatoires",dueDate:"2026-06-30",paid:true},
+    {id:"m5-6",label:"Assurance vie",amount:30.00,bucket:"obligatoires",dueDate:"2026-06-30",paid:true},
+    {id:"m5-7",label:"Courses juin",amount:192.00,bucket:"obligatoires",dueDate:null,paid:true},
+    {id:"m5-8",label:"Cinéma",amount:22.00,bucket:"loisirs",dueDate:null,paid:true},
+    {id:"m5-9",label:"Restaurant",amount:45.00,bucket:"loisirs",dueDate:null,paid:true},
+    {id:"m5-10",label:"Livret A",amount:100.00,bucket:"epargne",dueDate:"2026-06-05",paid:true},
+    {id:"m5-11",label:"Assurance vie enfant",amount:50.00,bucket:"epargne",dueDate:"2026-06-05",paid:true},
+    {id:"m5-12",label:"Espèces juin",amount:60.00,bucket:"especes",dueDate:null,paid:true},
+  ],
+  "2026-6":[
+    {id:"m6-1",label:"Disney+",amount:17.98,bucket:"obligatoires",dueDate:"2026-07-01",paid:false},
+    {id:"m6-2",label:"Spotify",amount:17.20,bucket:"obligatoires",dueDate:"2026-07-02",paid:false},
+    {id:"m6-3",label:"Assurance voiture Matmut",amount:81.32,bucket:"obligatoires",dueDate:"2026-07-05",paid:false},
+    {id:"m6-4",label:"Électricité Octopus",amount:73.79,bucket:"obligatoires",dueDate:"2026-07-03",paid:false},
+    {id:"m6-5",label:"Bouygues téléphone",amount:74.97,bucket:"obligatoires",dueDate:"2026-06-30",paid:false},
+    {id:"m6-6",label:"Assurance vie",amount:30.00,bucket:"obligatoires",dueDate:"2026-06-30",paid:false},
+    {id:"m6-11",label:"Livret A",amount:0,bucket:"epargne",dueDate:"2026-07-05",paid:false},
+    {id:"m6-12",label:"Assurance vie enfant",amount:0,bucket:"epargne",dueDate:"2026-07-05",paid:false},
+    {id:"m6-13",label:"Espèces juillet",amount:0,bucket:"especes",dueDate:"2026-07-31",paid:false},
+  ]
+};
+
+// ── State ─────────────────────────────────────────────────────
+let state={
+  data: (()=>{try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):DEFAULT_DATA;}catch(e){return DEFAULT_DATA;}})(),
+  month: CUR_M, year: CUR_Y,
+  view: "dashboard",
+  bucket: "obligatoires",
+  showForm: false,
+  formLabel:"", formAmount:"", formBucket:"obligatoires", formDate:"",
+  coursesInput:"", especesInput:""
+};
+
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.data));}catch(e){}}
+function getKey(){return`${state.year}-${state.month}`;}
+function getItems(){return state.data[getKey()]||[];}
+function isCurrent(){return state.month===CUR_M&&state.year===CUR_Y;}
+function sum(items,bucket){return items.filter(i=>i.bucket===bucket).reduce((s,i)=>s+i.amount,0);}
+function isCourse(i){return i.bucket==="obligatoires"&&guessEmoji(i.label)==="🛒";}
+
+function fmtDate(ds){
+  if(!ds)return null;
+  const d=new Date(ds),t=new Date();t.setHours(0,0,0,0);
+  const diff=Math.round((d-t)/86400000);
+  if(diff===0)return{l:"Aujourd'hui",u:true};
+  if(diff===1)return{l:"Demain",u:true};
+  if(diff===-1)return{l:"Hier",u:true};
+  if(diff<0)return{l:`En retard (${Math.abs(diff)}j)`,u:true};
+  if(diff<=3)return{l:`Dans ${diff}j`,u:true};
+  return{l:d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"}),u:false};
+}
+
+// ── Render ────────────────────────────────────────────────────
+function r(){
+  const items=getItems();
+  const cur=isCurrent();
+  const totalOblig=sum(items,"obligatoires");
+  const totalLoisirs=sum(items,"loisirs");
+  const totalEpargne=sum(items,"epargne");
+  const totalEspeces=sum(items,"especes");
+  const totalEpAll=totalEpargne+totalEspeces;
+  const totalDep=totalOblig+totalLoisirs;
+  const totalCourses=items.filter(isCourse).reduce((s,i)=>s+i.amount,0);
+  const reste=REVENU-totalDep-totalEpAll;
+  const bOblig=Math.round(REVENU*0.5),bLoisirs=Math.round(REVENU*0.3),bEpargne=Math.round(REVENU*0.2);
+  const pctUsed=Math.min(100,Math.round(((totalDep+totalEpAll)/REVENU)*100));
+  const circ=2*Math.PI*52;
+  const upcoming=items.filter(i=>!i.paid&&i.dueDate).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate)).slice(0,5);
+
+  // History
+  const hist=Object.entries(state.data).map(([k,its])=>{
+    const [y,m]=k.split("-").map(Number);
+    return{month:SHORT_M[m],sortKey:y*12+m,
+      courses:Math.round(its.filter(isCourse).reduce((s,i)=>s+i.amount,0)),
+      especes:its.filter(i=>i.bucket==="especes").reduce((s,i)=>s+i.amount,0),
+      livret:its.filter(i=>i.bucket==="epargne").reduce((s,i)=>s+i.amount,0)
+    };
+  }).sort((a,b)=>a.sortKey-b.sortKey);
+  const totalCashCumul=Object.values(state.data).reduce((s,its)=>s+its.filter(i=>i.bucket==="especes").reduce((ss,i)=>ss+i.amount,0),0);
+
+  // ── BUCKET COLORS ──
+  const BC={
+    obligatoires:{bg:"#E8E4F3",ac:"#A89FD8"},
+    loisirs:{bg:"#FDDCCC",ac:"#E8A98A"},
+    epargne:{bg:"#D4EDDA",ac:"#7BC99A"},
+    especes:{bg:"#FDFDE8",ac:"#D4B84A"},
+  };
+
+  // ── HTML ──
+  let h=`
+  <div style="font-family:'DM Sans',sans-serif;background:#F7F6FC;min-height:100vh;color:#3D3D5C">
+
+  <!-- HEADER -->
+  <div style="background:#fff;padding:14px 18px 0;position:sticky;top:0;z-index:10;box-shadow:0 1px 0 #EEEAF8">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <div style="font-size:19px;font-weight:600">Mon Budget 💰</div>
+        <div style="font-size:12px;color:#9B97B8">${REVENU}€ / mois</div>
+      </div>
+      <button onclick="openForm()" style="background:#E8E4F3;color:#6B5FD8;border:none;border-radius:20px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">+ Ajouter</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
+      <button onclick="prevM()" style="border:none;background:#F0EEF8;border-radius:8px;width:28px;height:28px;font-size:15px;color:#6B5FD8;cursor:pointer">‹</button>
+      <div style="font-size:14px;font-weight:600;min-width:150px;text-align:center">
+        ${MONTHS[state.month]} ${state.year}
+        ${cur?'<span style="font-size:10px;background:#E8E4F3;color:#6B5FD8;border-radius:8px;padding:2px 7px;margin-left:6px">ce mois</span>':''}
+      </div>
+      <button onclick="nextM()" style="border:none;background:${cur?'#F7F6FC':'#F0EEF8'};border-radius:8px;width:28px;height:28px;font-size:15px;color:${cur?'#C0BBD8':'#6B5FD8'};cursor:pointer">›</button>
+    </div>
+    <div style="display:flex">
+      ${['dashboard','echeances','stats'].map((v,i)=>`<button onclick="setView('${v}')" style="flex:1;border:none;background:none;padding:9px 0;font-size:13px;font-weight:${state.view===v?600:400};color:${state.view===v?'#6B5FD8':'#9B97B8'};border-bottom:${state.view===v?'2.5px solid #A89FD8':'2.5px solid transparent'};cursor:pointer">${['Accueil','Échéances','Stats'][i]}</button>`).join('')}
+    </div>
+  </div>
+
+  <div style="padding:16px 16px 60px;max-width:500px;margin:0 auto">`;
+
+  // ── DASHBOARD ──
+  if(state.view==="dashboard"){
+    const pctOblig=Math.min(100,Math.round((totalOblig/bOblig)*100));
+    const pctLoisirs=Math.min(100,Math.round((totalLoisirs/bLoisirs)*100));
+    const pctCourses=Math.min(100,Math.round((totalCourses/COURSES_MAX)*100));
+    const wL=bEpargne>0?Math.min(100,(totalEpargne/bEpargne)*100):0;
+    const wE=bEpargne>0?Math.min(100-wL,(totalEspeces/bEpargne)*100):0;
+    const pctLivret=bEpargne>0?Math.min(100,Math.round((totalEpargne/bEpargne)*100)):0;
+
+    // Anneau
+    h+=`<div style="background:#fff;border-radius:22px;padding:22px 20px;margin-bottom:14px;text-align:center;box-shadow:0 2px 12px rgba(168,159,216,0.1)">
+    ${items.length===0?'<div style="padding:20px 0;color:#9B97B8;font-size:13px">Aucune donnée pour ce mois.</div>':`
+    <svg width="130" height="130" viewBox="0 0 130 130" style="display:block;margin:0 auto 12px">
+      <circle cx="65" cy="65" r="52" fill="none" stroke="#EEEAF8" stroke-width="13"/>
+      <circle cx="65" cy="65" r="52" fill="none" stroke="url(#g1)" stroke-width="13" stroke-linecap="round"
+        stroke-dasharray="${(pctUsed/100)*circ} ${circ}" stroke-dashoffset="${circ/4}"/>
+      <defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#C4BDE8"/><stop offset="100%" stop-color="#E8A98A"/>
+      </linearGradient></defs>
+      <text x="65" y="60" text-anchor="middle" font-size="20" font-weight="600" fill="#3D3D5C" font-family="DM Sans">${(totalDep+totalEpAll).toFixed(0)}€</text>
+      <text x="65" y="77" text-anchor="middle" font-size="11" fill="#9B97B8" font-family="DM Sans">sur ${REVENU}€</text>
+    </svg>
+    <div style="display:flex;justify-content:space-around">
+      <div style="text-align:center"><div style="font-size:11px;color:#9B97B8;margin-bottom:2px">Dépensé</div><div style="font-size:16px;font-weight:600;color:#E8A98A">${totalDep.toFixed(0)}€</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:#9B97B8;margin-bottom:2px">Épargné</div><div style="font-size:16px;font-weight:600;color:#7BC99A">${totalEpAll.toFixed(0)}€</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:#9B97B8;margin-bottom:2px">Libre</div><div style="font-size:16px;font-weight:600;color:${reste>=0?'#A89FD8':'#E48FAA'}">${reste.toFixed(0)}€</div></div>
+    </div>`}
+    </div>`;
+
+    // Obligatoires + Courses
+    h+=`<div style="background:#fff;border-radius:18px;padding:15px 16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.04);border-left:4px solid #A89FD8">
+    <div onclick="goTab('obligatoires')" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#E8E4F3;border-radius:10px;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px">🏠</div>
+          <div><div style="font-size:13px;font-weight:600">Dépenses obligatoires</div><div style="font-size:11px;color:#9B97B8">50% · budget ${bOblig}€</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:600;color:${totalOblig>bOblig?'#E48FAA':'#3D3D5C'}">${totalOblig.toFixed(0)}€</div>
+          ${items.filter(i=>i.bucket==="obligatoires"&&!i.paid).length>0?`<div style="font-size:10px;color:#E8A98A;font-weight:500">${items.filter(i=>i.bucket==="obligatoires"&&!i.paid).length} à payer</div>`:''}
+        </div>
+      </div>
+      <div style="height:6px;background:#F0EEF8;border-radius:4px;margin-bottom:4px"><div style="height:6px;background:${totalOblig>bOblig?'#E48FAA':'#A89FD8'};border-radius:4px;width:${pctOblig}%"></div></div>
+      <div style="font-size:10px;color:#9B97B8;margin-bottom:12px">${pctOblig}% · reste ${(bOblig-totalOblig).toFixed(0)}€</div>
+    </div>
+    <div style="background:#EFF6FF;border-radius:12px;padding:10px 12px;border:1px solid #BFDBFE">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:16px">🛒</span>
+          <div><div style="font-size:12px;font-weight:600;color:#3D4A5C">Courses</div><div style="font-size:10px;color:#5B8AC4">Objectif ${COURSES_MIN}–${COURSES_MAX}€</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:15px;font-weight:700;color:${totalCourses>COURSES_MAX?'#E48FAA':totalCourses>=COURSES_MIN?'#5B8AC4':'#3D3D5C'}">${totalCourses.toFixed(0)}€</div>
+          <div style="font-size:9px;color:${totalCourses>COURSES_MAX?'#E48FAA':'#7BAEE8'}">${totalCourses>COURSES_MAX?`⚠️ +${(totalCourses-COURSES_MAX).toFixed(0)}€`:`reste ${(COURSES_MAX-totalCourses).toFixed(0)}€`}</div>
+        </div>
+      </div>
+      <div style="position:relative;height:6px;background:#DBEAFE;border-radius:3px;margin-bottom:10px">
+        <div style="height:6px;background:${totalCourses>COURSES_MAX?'#E48FAA':'#7BAEE8'};border-radius:3px;width:${pctCourses}%"></div>
+        <div style="position:absolute;left:${(COURSES_MIN/COURSES_MAX*100)}%;top:-2px;width:2px;height:10px;background:#3B82F6;border-radius:1px"></div>
+      </div>
+      ${cur?`<div style="display:flex;gap:6px">
+        <input id="courses-input" type="number" placeholder="Montant (ex: 45)" value="${state.coursesInput}" oninput="state.coursesInput=this.value"
+          style="flex:1;padding:7px 10px;border-radius:9px;border:1px solid #BFDBFE;font-size:13px;outline:none;color:#3D3D5C;background:#fff"/>
+        <button onclick="addCourses()" style="background:#7BAEE8;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Ajouter</button>
+      </div>`:''}
+    </div>
+    </div>`;
+
+    // Loisirs
+    h+=`<div onclick="goTab('loisirs')" style="background:#fff;border-radius:18px;padding:15px 16px;margin-bottom:10px;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,0.04);border-left:4px solid #E8A98A">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="background:#FDDCCC;border-radius:10px;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px">🎉</div>
+        <div><div style="font-size:13px;font-weight:600">Loisirs & envies</div><div style="font-size:11px;color:#9B97B8">30% · budget ${bLoisirs}€</div></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:600;color:${totalLoisirs>bLoisirs?'#E48FAA':'#3D3D5C'}">${totalLoisirs.toFixed(0)}€</div>
+      </div>
+    </div>
+    <div style="height:6px;background:#F0EEF8;border-radius:4px"><div style="height:6px;background:${totalLoisirs>bLoisirs?'#E48FAA':'#E8A98A'};border-radius:4px;width:${pctLoisirs}%"></div></div>
+    <div style="font-size:10px;color:#9B97B8;margin-top:4px">${pctLoisirs}% · reste ${(bLoisirs-totalLoisirs).toFixed(0)}€</div>
+    </div>`;
+
+    // Épargne
+    h+=`<div style="background:#fff;border-radius:18px;padding:15px 16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.04);border-left:4px solid #7BC99A">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="background:#D4EDDA;border-radius:10px;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px">🌱</div>
+        <div><div style="font-size:13px;font-weight:600">Épargne</div><div style="font-size:11px;color:#9B97B8">20% · budget ${bEpargne}€</div></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:600;color:${totalEpAll>bEpargne?'#E48FAA':'#3D3D5C'}">${totalEpAll.toFixed(0)}€</div>
+        <div style="font-size:10px;color:#9B97B8">reste ${(bEpargne-totalEpAll).toFixed(0)}€</div>
+      </div>
+    </div>
+    <div style="height:8px;background:#F0EEF8;border-radius:4px;overflow:hidden;display:flex;margin-bottom:8px">
+      <div style="width:${wL}%;background:#7BC99A"></div>
+      <div style="width:${wE}%;background:#D4B84A"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div onclick="goTab('epargne')" style="background:#F0FBF4;border-radius:12px;padding:10px 12px;cursor:pointer;border:1px solid #C8E6D0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span>🏦</span><span style="font-size:12px;font-weight:600;color:#3D5C42">Livret A</span></div>
+        <div style="font-size:16px;font-weight:700;color:#2D7A4A">${totalEpargne.toFixed(0)}€</div>
+        <div style="margin-top:5px;height:4px;background:#C8E6D0;border-radius:2px"><div style="height:4px;background:#7BC99A;border-radius:2px;width:${pctLivret}%"></div></div>
+        <div style="font-size:9px;color:#6B9C78;margin-top:3px">${pctLivret}% du budget épargne</div>
+      </div>
+      <div onclick="goTab('especes')" style="background:#FDFDE8;border-radius:12px;padding:10px 12px;cursor:pointer;border:1px solid #EDE87A">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span>💵</span><span style="font-size:12px;font-weight:600;color:#5C4D10">Espèces</span></div>
+        <div style="font-size:16px;font-weight:700;color:#7A6A10">${totalEspeces.toFixed(0)}€</div>
+        <div style="font-size:9px;color:#9B8A20;margin-top:4px">Cumul : ${totalCashCumul.toFixed(0)}€</div>
+      </div>
+    </div>
+    ${cur?`<div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;color:#9B8A20;white-space:nowrap">💵 Ce mois :</span>
+      <input type="number" placeholder="0" value="${state.especesInput}" oninput="updateEspeces(this.value)"
+        style="flex:1;padding:7px 10px;border-radius:9px;border:1px solid #D4B84A;font-size:13px;outline:none;color:#3D3D5C;background:#fff"/>
+      <span style="font-size:12px;color:#9B8A20">€</span>
+    </div>`:''}
+    </div>`;
+
+    // Échéances
+    if(upcoming.length>0){
+      h+=`<div style="font-size:12px;font-weight:600;color:#9B97B8;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 10px">⏰ Prochaines échéances</div>`;
+      upcoming.forEach(i=>{
+        const d=fmtDate(i.dueDate);
+        const bc=BC[i.bucket]||BC.obligatoires;
+        h+=`<div style="background:${d&&d.u?'#FFF8F5':'#fff'};border-radius:13px;padding:11px 15px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;border:1px solid ${d&&d.u?'#FDDCCC':'#F0EEF8'}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:${bc.bg};border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:15px">${guessEmoji(i.label)}</div>
+          <div><div style="font-size:13px;font-weight:500">${i.label}</div><div style="font-size:11px;color:${d&&d.u?'#E8A98A':'#9B97B8'}">${d?d.l:''}</div></div>
+        </div>
+        <div style="font-size:14px;font-weight:600">${i.amount.toFixed(2)}€</div>
+        </div>`;
+      });
+    }
+  }
+
+  // ── ÉCHEANCES ──
+  else if(state.view==="echeances"){
+    const tabs=[
+      {key:"obligatoires",label:"🏠 Obligatoires",color:"#E8E4F3",ac:"#A89FD8"},
+      {key:"loisirs",label:"🎉 Loisirs",color:"#FDDCCC",ac:"#E8A98A"},
+      {key:"epargne",label:"🏦 Livret A",color:"#D4EDDA",ac:"#7BC99A"},
+      {key:"especes",label:"💵 Espèces",color:"#FDFDE8",ac:"#D4B84A"},
+    ];
+    h+=`<div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">`;
+    tabs.forEach(t=>{
+      const active=state.bucket===t.key;
+      h+=`<button onclick="state.bucket='${t.key}';r()" style="background:${active?t.color:'#fff'};color:${active?'#3D3D5C':'#9B97B8'};border:1px solid ${active?t.ac:'#F0EEF8'};border-radius:20px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">${t.label}</button>`;
+    });
+    h+=`</div>`;
+
+    const bt=state.bucket;
+    const bDef=BC[bt];
+    const list=items.filter(i=>i.bucket===bt).sort((a,b)=>{
+      if(a.paid!==b.paid)return a.paid?1:-1;
+      if(a.dueDate&&b.dueDate)return new Date(a.dueDate)-new Date(b.dueDate);
+      return 0;
+    });
+    const spent=list.reduce((s,i)=>s+i.amount,0);
+    const budget=bt==="obligatoires"?bOblig:bt==="loisirs"?bLoisirs:bt==="epargne"?bEpargne:null;
+    const label=bt==="epargne"?"Livret A":tabs.find(t=>t.key===bt).label;
+
+    h+=`<div style="background:${bDef.bg};border-radius:14px;padding:13px 15px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:13px;font-weight:600">${label}</div>
+    <div style="font-size:11px;color:#6B5F8A">${budget?`Budget ${budget}€`:`Épargne libre · Cumul ${totalCashCumul.toFixed(0)}€`}</div></div>
+    <div style="text-align:right">
+      <div style="font-size:17px;font-weight:600;color:${budget&&spent>budget?'#E48FAA':'#3D3D5C'}">${spent.toFixed(0)}€</div>
+      ${budget?`<div style="font-size:11px;color:#6B5F8A">reste ${(budget-spent).toFixed(0)}€</div>`:''}
+    </div></div>`;
+
+    list.forEach(i=>{
+      const d=i.dueDate?fmtDate(i.dueDate):null;
+      h+=`<div style="background:${i.paid?'#FAFAFA':'#fff'};border-radius:13px;padding:12px 15px;margin-bottom:7px;display:flex;align-items:center;gap:11px;box-shadow:${i.paid?'none':'0 1px 5px rgba(0,0,0,0.05)'};border:1px solid ${i.paid?'#F0EEF8':'transparent'}">
+      <button onclick="togglePaid('${i.id}')" style="width:25px;height:25px;border-radius:50%;border:2px solid ${i.paid?bDef.ac:'#D0CBE8'};background:${i.paid?bDef.ac:'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        ${i.paid?'<span style="color:#fff;font-size:11px">✓</span>':''}
+      </button>
+      <div style="font-size:19px;flex-shrink:0">${guessEmoji(i.label)}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500;color:${i.paid?'#9B97B8':'#3D3D5C'};text-decoration:${i.paid?'line-through':'none'}">${i.label}</div>
+        ${d?`<div style="font-size:11px;color:${d.u&&!i.paid?'#E8A98A':'#9B97B8'};margin-top:1px">${d.l}</div>`:''}
+      </div>
+      <div style="font-size:14px;font-weight:600;color:${i.paid?'#9B97B8':'#3D3D5C'}">${i.amount.toFixed(2)}€</div>
+      ${cur?`<button onclick="deleteItem('${i.id}')" style="background:#FEF3C7;border:none;border-radius:7px;width:25px;height:25px;cursor:pointer;font-size:13px;color:#B8954A">×</button>`:''}
+      </div>`;
+    });
+    if(list.length===0)h+=`<div style="text-align:center;color:#9B97B8;padding:36px">Aucun élément pour ce mois.</div>`;
+  }
+
+  // ── STATS ──
+  else if(state.view==="stats"){
+    // Simple stats sans recharts (barres CSS)
+    const maxHist=Math.max(...hist.map(x=>x.courses),COURSES_MAX,1);
+    const maxEp=Math.max(...hist.map(x=>x.livret+x.especes),1);
+
+    h+=`<div style="background:#fff;border-radius:20px;padding:20px 16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(168,159,216,0.08)">
+    <div style="font-size:12px;font-weight:600;color:#9B97B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Répartition — ${MONTHS[state.month]}</div>`;
+
+    const pieItems=[
+      {label:"Obligatoires",val:totalOblig,color:"#A89FD8"},
+      {label:"Loisirs",val:totalLoisirs,color:"#E8A98A"},
+      {label:"Livret A",val:totalEpargne,color:"#7BC99A"},
+      {label:"Espèces",val:totalEspeces,color:"#D4B84A"},
+    ].filter(x=>x.val>0);
+    const total=pieItems.reduce((s,x)=>s+x.val,0)||1;
+
+    h+=`<div style="display:flex;flex-direction:column;gap:8px">`;
+    pieItems.forEach(x=>{
+      h+=`<div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:50%;background:${x.color}"></div>${x.label}</div>
+          <strong>${x.val.toFixed(0)}€ (${Math.round(x.val/total*100)}%)</strong>
+        </div>
+        <div style="height:8px;background:#F0EEF8;border-radius:4px"><div style="height:8px;background:${x.color};border-radius:4px;width:${Math.round(x.val/total*100)}%"></div></div>
+      </div>`;
+    });
+    h+=`</div></div>`;
+
+    // Objectifs 50/30/20
+    h+=`<div style="background:#fff;border-radius:20px;padding:20px 16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(168,159,216,0.08)">
+    <div style="font-size:12px;font-weight:600;color:#9B97B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Objectifs 50/30/20</div>`;
+    [
+      {label:"🏠 Obligatoires",budget:bOblig,spent:totalOblig,color:"#A89FD8"},
+      {label:"🎉 Loisirs",budget:bLoisirs,spent:totalLoisirs,color:"#E8A98A"},
+      {label:"🌱 Épargne (total)",budget:bEpargne,spent:totalEpAll,color:"#7BC99A"},
+    ].forEach(b=>{
+      const pct=Math.min(100,Math.round((b.spent/b.budget)*100));
+      const over=b.spent>b.budget;
+      h+=`<div style="margin-bottom:15px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:500">${b.label}</span>
+          <span style="font-size:13px;font-weight:600;color:${over?'#E48FAA':'#3D3D5C'}">${b.spent.toFixed(0)}€ <span style="color:#9B97B8;font-weight:400">/ ${b.budget}€</span></span>
+        </div>
+        <div style="height:8px;background:#F0EEF8;border-radius:4px"><div style="height:8px;background:${over?'#E48FAA':b.color};border-radius:4px;width:${pct}%"></div></div>
+        <div style="font-size:10px;color:${over?'#E48FAA':'#9B97B8'};margin-top:3px">${over?`⚠️ Dépassement de ${(b.spent-b.budget).toFixed(0)}€`:`${pct}% · reste ${(b.budget-b.spent).toFixed(0)}€`}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+
+    // Historique courses
+    h+=`<div style="background:#EFF6FF;border-radius:20px;padding:20px 16px;margin-bottom:14px">
+    <div style="font-size:12px;font-weight:600;color:#5B8AC4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">🛒 Courses · ${COURSES_MIN}–${COURSES_MAX}€</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:80px">`;
+    hist.forEach((m,i)=>{
+      const h2=m.courses>0?Math.max(8,Math.round((m.courses/COURSES_MAX)*76)):4;
+      h+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="font-size:9px;color:#5B8AC4;font-weight:600">${m.courses>0?m.courses+'€':''}</div>
+        <div style="width:100%;background:${i===hist.length-1?'#7BAEE8':'#BFDBFE'};border-radius:4px 4px 0 0;height:${h2}px"></div>
+        <div style="font-size:9px;color:#7BAEE8">${m.month}</div>
+      </div>`;
+    });
+    h+=`</div>
+    <div style="display:flex;gap:8px;margin-top:8px;font-size:10px;color:#7BAEE8">
+      <span>Min ${COURSES_MIN}€</span><span>Max ${COURSES_MAX}€</span>
+    </div></div>`;
+
+    // Historique épargne
+    h+=`<div style="background:#F0FBF4;border-radius:20px;padding:20px 16px;border:1px solid #C8E6D0">
+    <div style="font-size:12px;font-weight:600;color:#3D5C42;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">🌱 Épargne · cumul espèces ${totalCashCumul.toFixed(0)}€</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:80px">`;
+    hist.forEach((m,i)=>{
+      const maxV=Math.max(...hist.map(x=>x.livret+x.especes),1);
+      const hL=m.livret>0?Math.max(4,Math.round((m.livret/maxV)*70)):0;
+      const hE=m.especes>0?Math.max(4,Math.round((m.especes/maxV)*70)):0;
+      h+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;display:flex;flex-direction:column;align-items:stretch;gap:1px">
+          <div style="background:${i===hist.length-1?'#7BC99A':'#C8E6D0'};border-radius:3px 3px 0 0;height:${hL}px"></div>
+          <div style="background:${i===hist.length-1?'#D4B84A':'#EDE87A'};height:${hE}px"></div>
+        </div>
+        <div style="font-size:9px;color:#6B9C78">${m.month}</div>
+      </div>`;
+    });
+    h+=`</div>
+    <div style="display:flex;justify-content:center;gap:16px;margin-top:8px">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#3D5C42"><div style="width:9px;height:9px;border-radius:50%;background:#7BC99A"></div>Livret A</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7A6A10"><div style="width:9px;height:9px;border-radius:50%;background:#D4B84A"></div>Espèces</div>
+    </div></div>`;
+  }
+
+  h+=`</div>`; // fin padding
+
+  // MODAL AJOUT
+  if(state.showForm){
+    h+=`<div onclick="closeForm()" style="position:fixed;inset:0;background:rgba(61,61,92,0.25);display:flex;align-items:flex-end;z-index:100">
+    <div onclick="event.stopPropagation()" style="background:#fff;border-radius:22px 22px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;margin:0 auto">
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px">Ajouter — ${MONTHS[state.month]}</div>
+      ${state.formLabel?`<div style="font-size:22px;text-align:center;margin-bottom:8px">${guessEmoji(state.formLabel)}</div>`:''}
+      <input type="text" placeholder="Nom (ex: Lidl, Cinéma…)" value="${state.formLabel}" oninput="state.formLabel=this.value;r()"
+        style="width:100%;padding:11px 13px;border-radius:11px;border:1px solid #E8E4F3;font-size:14px;margin-bottom:9px;box-sizing:border-box;outline:none;color:#3D3D5C"/>
+      <input type="number" placeholder="Montant (€)" value="${state.formAmount}" oninput="state.formAmount=this.value"
+        style="width:100%;padding:11px 13px;border-radius:11px;border:1px solid #E8E4F3;font-size:14px;margin-bottom:9px;box-sizing:border-box;outline:none;color:#3D3D5C"/>
+      <select onchange="state.formBucket=this.value" style="width:100%;padding:11px 13px;border-radius:11px;border:1px solid #E8E4F3;font-size:14px;margin-bottom:9px;box-sizing:border-box;color:#3D3D5C;background:#fff">
+        <option value="obligatoires" ${state.formBucket==='obligatoires'?'selected':''}>🏠 Dépenses obligatoires</option>
+        <option value="loisirs" ${state.formBucket==='loisirs'?'selected':''}>🎉 Loisirs & envies</option>
+        <option value="epargne" ${state.formBucket==='epargne'?'selected':''}>🏦 Épargne · Livret A</option>
+        <option value="especes" ${state.formBucket==='especes'?'selected':''}>💵 Épargne · Espèces</option>
+      </select>
+      <input type="date" value="${state.formDate}" oninput="state.formDate=this.value"
+        style="width:100%;padding:11px 13px;border-radius:11px;border:1px solid #E8E4F3;font-size:14px;margin-bottom:16px;box-sizing:border-box;color:#3D3D5C"/>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeForm()" style="flex:1;padding:12px;border-radius:13px;border:1px solid #E8E4F3;background:#fff;font-size:14px;color:#9B97B8;cursor:pointer">Annuler</button>
+        <button onclick="submitForm()" style="flex:2;padding:12px;border-radius:13px;border:none;background:#E8E4F3;font-size:14px;font-weight:600;color:#6B5FD8;cursor:pointer">Ajouter</button>
+      </div>
+    </div></div>`;
+  }
+
+  h+=`</div>`; // fin app div
+  document.getElementById('app').innerHTML=h;
+
+  // Restaurer focus si besoin
+  if(state.showForm&&state.formLabel===""){
+    const inp=document.querySelector('input[placeholder="Nom (ex: Lidl, Cinéma…)"]');
+    if(inp)inp.focus();
+  }
+}
+
+// ── Actions ───────────────────────────────────────────────────
+function setView(v){state.view=v;r();}
+function goTab(b){state.bucket=b;state.view="echeances";r();}
+function prevM(){if(state.month===0){state.month=11;state.year--;}else state.month--;r();}
+function nextM(){if(state.month===CUR_M&&state.year===CUR_Y)return;if(state.month===11){state.month=0;state.year++;}else state.month++;r();}
+function openForm(){state.showForm=true;state.formLabel="";state.formAmount="";state.formBucket="obligatoires";state.formDate="";r();}
+function closeForm(){state.showForm=false;r();}
+
+function submitForm(){
+  if(!state.formLabel||!state.formAmount)return;
+  const key=getKey();
+  if(!state.data[key])state.data[key]=[];
+  state.data[key].push({id:Date.now().toString(),label:state.formLabel,amount:parseFloat(state.formAmount),bucket:state.formBucket,dueDate:state.formDate||null,paid:false});
+  save();state.showForm=false;r();
+}
+
+function togglePaid(id){
+  const key=getKey();
+  state.data[key]=state.data[key].map(i=>i.id===id?{...i,paid:!i.paid}:i);
+  save();r();
+}
+
+function deleteItem(id){
+  const key=getKey();
+  state.data[key]=state.data[key].filter(i=>i.id!==id);
+  save();r();
+}
+
+function addCourses(){
+  const val=parseFloat(state.coursesInput)||0;
+  if(!val)return;
+  const key=getKey();
+  if(!state.data[key])state.data[key]=[];
+  state.data[key].push({id:Date.now().toString(),label:"Courses",amount:val,bucket:"obligatoires",dueDate:null,paid:true});
+  state.coursesInput="";
+  save();r();
+}
+
+function updateEspeces(val){
+  state.especesInput=val;
+  const v=parseFloat(val)||0;
+  const key=getKey();
+  if(!state.data[key])state.data[key]=[];
+  const ex=state.data[key].find(i=>i.bucket==="especes");
+  if(ex)state.data[key]=state.data[key].map(i=>i.bucket==="especes"?{...i,amount:v}:i);
+  else state.data[key].push({id:Date.now().toString(),label:"Espèces",amount:v,bucket:"especes",dueDate:null,paid:false});
+  save();r();
+}
+
+// ── Init ──────────────────────────────────────────────────────
+r();
+</script>
+</body>
+</html>
