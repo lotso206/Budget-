@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Mon Budget"/>
+  <meta name="theme-color" content="#ffffff"/>
+  <title>Mon Budget</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:'DM Sans',sans-serif;background:#F7F6FC;color:#3D3D5C}
+    input,select,button{font-family:'DM Sans',sans-serif}
+    #modal{display:none;position:fixed;inset:0;background:rgba(61,61,92,0.25);z-index:100;align-items:flex-end}
+    #modal.open{display:flex}
+    #modal-box{background:#fff;border-radius:22px 22px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;margin:0 auto}
+    .card{background:#fff;border-radius:18px;padding:15px 16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.04)}
+    .bar-bg{height:6px;background:#F0EEF8;border-radius:4px}
+    .bar-fill{height:6px;border-radius:4px}
+    .tab-btn{flex:1;border:none;background:none;padding:9px 0;font-size:13px;cursor:pointer;border-bottom:2.5px solid transparent}
+    .sub-card{border-radius:12px;padding:10px 12px;border:1px solid}
+    .input-field{width:100%;padding:11px 13px;border-radius:11px;border:1px solid #E8E4F3;font-size:14px;margin-bottom:9px;outline:none;color:#3D3D5C;display:block}
+    .btn-primary{width:100%;padding:12px;border-radius:13px;border:none;background:#E8E4F3;font-size:14px;font-weight:600;color:#6B5FD8;cursor:pointer;margin-top:4px}
+    .btn-secondary{flex:1;padding:12px;border-radius:13px;border:1px solid #E8E4F3;background:#fff;font-size:14px;color:#9B97B8;cursor:pointer}
+    .nav-pill{border:1px solid;border-radius:20px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+    .item-row{border-radius:13px;padding:12px 15px;margin-bottom:7px;display:flex;align-items:center;gap:11px}
+    .check-btn{width:25px;height:25px;border-radius:50%;border:2px solid #D0CBE8;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .del-btn{background:#FEF3C7;border:none;border-radius:7px;width:25px;height:25px;cursor:pointer;font-size:13px;color:#B8954A;flex-shrink:0}
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- MODAL AJOUT — ne se recharge PAS -->
+<div id="modal" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px" id="modal-title">Ajouter</div>
+    <div id="form-emoji" style="font-size:22px;text-align:center;margin-bottom:8px;min-height:30px"></div>
+    <input class="input-field" id="f-label" type="text" placeholder="Nom (ex: Lidl, Cinéma…)" oninput="updateEmoji()"/>
+    <input class="input-field" id="f-amount" type="number" placeholder="Montant (€)"/>
+    <select class="input-field" id="f-bucket">
+      <option value="obligatoires">🏠 Dépenses obligatoires</option>
+      <option value="loisirs">🎉 Loisirs & envies</option>
+      <option value="epargne">🏦 Épargne · Livret A</option>
+      <option value="especes">💵 Épargne · Espèces</option>
+    </select>
+    <input class="input-field" id="f-date" type="date"/>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn-secondary" onclick="closeModal()">Annuler</button>
+      <button style="flex:2;padding:12px;border-radius:13px;border:none;background:#E8E4F3;font-size:14px;font-weight:600;color:#6B5FD8;cursor:pointer" onclick="submitForm()">Ajouter ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const REVENU=1254,CMIN=100,CMAX=200;
+const MONTHS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const SM=["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+const CM=6,CY=2026,SK="monbudget_v3";
+
+function emoji(label){
+  const l=label.toLowerCase();
+  if(l.includes("disney")||l.includes("netflix"))return"🎬";
+  if(l.includes("spotify")||l.includes("deezer"))return"🎵";
+  if(l.includes("électricité")||l.includes("electricite")||l.includes("octopus")||l.includes("edf"))return"⚡";
+  if(l.includes("gaz"))return"🔥";
+  if(l.includes("eau"))return"💧";
+  if(l.includes("internet")||l.includes("fibre")||l.includes("box"))return"📡";
+  if(l.includes("téléphone")||l.includes("mobile")||l.includes("bouygues")||l.includes("sfr")||l.includes("orange")||l.includes("free"))return"📱";
+  if(l.includes("assurance voiture")||l.includes("matmut")||l.includes("maif")||l.includes("axa"))return"🚗";
+  if(l.includes("assurance vie"))return"🛡️";
+  if(l.includes("assurance"))return"🛡️";
+  if(l.includes("mutuelle")||l.includes("santé"))return"💊";
+  if(l.includes("espèces")||l.includes("especes")||l.includes("cash"))return"💵";
+  if(l.includes("courses")||l.includes("carrefour")||l.includes("lidl")||l.includes("leclerc")||l.includes("aldi")||l.includes("marché")||l.includes("supermarché")||l.includes("intermarché"))return"🛒";
+  if(l.includes("livret")||l.includes("pel"))return"🏦";
+  if(l.includes("restaurant")||l.includes("resto"))return"🍽️";
+  if(l.includes("cinéma")||l.includes("cinema"))return"🎥";
+  if(l.includes("école")||l.includes("cantine"))return"🎓";
+  if(l.includes("sport")||l.includes("salle")||l.includes("gym"))return"🏋️";
+  if(l.includes("voyage")||l.includes("vacances"))return"✈️";
+  if(l.includes("prime"))return"📦";
+  if(l.includes("canal"))return"📺";
+  return"💳";
+}
+
+const DEF={
+  "2026-4":[
+    {id:"m4-1",label:"Disney+",amount:17.98,bucket:"obligatoires",dueDate:"2026-05-01",paid:true},
+    {id:"m4-2",label:"Spotify",amount:17.20,bucket:"obligatoires",dueDate:"2026-05-02",paid:true},
+    {id:"m4-3",label:"Assurance voiture Matmut",amount:81.32,bucket:"obligatoires",dueDate:"2026-05-05",paid:true},
+    {id:"m4-4",label:"Électricité Octopus",amount:73.79,bucket:"obligatoires",dueDate:"2026-05-03",paid:true},
+    {id:"m4-5",label:"Bouygues téléphone",amount:74.97,bucket:"obligatoires",dueDate:"2026-05-30",paid:true},
+    {id:"m4-6",label:"Assurance vie",amount:30.00,bucket:"obligatoires",dueDate:"2026-05-30",paid:true},
+    {id:"m4-7",label:"Courses mai",amount:178.00,bucket:"obligatoires",dueDate:null,paid:true},
+    {id:"m4-8",label:"Restaurant",amount:38.00,bucket:"loisirs",dueDate:null,paid:true},
+    {id:"m4-9",label:"Livret A",amount:100.00,bucket:"epargne",dueDate:"2026-05-05",paid:true},
+    {id:"m4-10",label:"Assurance vie enfant",amount:50.00,bucket:"epargne",dueDate:"2026-05-05",paid:true},
+    {id:"m4-11",label:"Espèces mai",amount:75.00,bucket:"especes",dueDate:null,paid:true},
+  ],
+  "2026-5":[
+    {id:"m5-1",label:"Disney+",amount:17.98,bucket:"obligatoires",dueDate:"2026-06-01",paid:true},
+    {id:"m5-2",label:"Spotify",amount:17.20,bucket:"obligatoires",dueDate:"2026-06-02",paid:true},
+    {id:"m5-3",label:"Assurance voiture Matmut",amount:81.32,bucket:"obligatoires",dueDate:"2026-06-05",paid:true},
+    {id:"m5-4",label:"Électricité Octopus",amount:73.79,bucket:"obligatoires",dueDate:"2026-06-03",paid:true},
+    {id:"m5-5",label:"Bouygues téléphone",amount:74.97,bucket:"obligatoires",dueDate:"2026-06-30",paid:true},
+    {id:"m5-6",label:"Assurance vie",amount:30.00,bucket:"obligatoires",dueDate:"2026-06-30",paid:true},
+    {id:"m5-7",label:"Courses juin",amount:192.00,bucket:"obligatoires",dueDate:null,paid:true},
+    {id:"m5-8",label:"Cinéma",amount:22.00,bucket:"loisirs",dueDate:null,paid:true},
+    {id:"m5-9",label:"Restaurant",amount:45.00,bucket:"loisirs",dueDate:null,paid:true},
+    {id:"m5-10",label:"Livret A",amount:100.00,bucket:"epargne",dueDate:"2026-06-05",paid:true},
+    {id:"m5-11",label:"Assurance vie enfant",amount:50.00,bucket:"epargne",dueDate:"2026-06-05",paid:true},
+    {id:"m5-12",label:"Espèces juin",amount:60.00,bucket:"especes",dueDate:null,paid:true},
+  ],
+  "2026-6":[
+    {id:"m6-1",label:"Disney+",amount:17.98,bucket:"obligatoires",dueDate:"2026-07-01",paid:false},
+    {id:"m6-2",label:"Spotify",amount:17.20,bucket:"obligatoires",dueDate:"2026-07-02",paid:false},
+    {id:"m6-3",label:"Assurance voiture Matmut",amount:81.32,bucket:"obligatoires",dueDate:"2026-07-05",paid:false},
+    {id:"m6-4",label:"Électricité Octopus",amount:73.79,bucket:"obligatoires",dueDate:"2026-07-03",paid:false},
+    {id:"m6-5",label:"Bouygues téléphone",amount:74.97,bucket:"obligatoires",dueDate:"2026-06-30",paid:false},
+    {id:"m6-6",label:"Assurance vie",amount:30.00,bucket:"obligatoires",dueDate:"2026-06-30",paid:false},
+    {id:"m6-11",label:"Livret A",amount:0,bucket:"epargne",dueDate:"2026-07-05",paid:false},
+    {id:"m6-12",label:"Assurance vie enfant",amount:0,bucket:"epargne",dueDate:"2026-07-05",paid:false},
+    {id:"m6-13",label:"Espèces juillet",amount:0,bucket:"especes",dueDate:"2026-07-31",paid:false},
+  ]
+};
+
+let data=(()=>{try{const s=localStorage.getItem(SK);return s?JSON.parse(s):JSON.parse(JSON.stringify(DEF));}catch(e){return JSON.parse(JSON.stringify(DEF));}})();
+let month=CM,year=CY,view="dashboard",tab="obligatoires";
+
+function save(){try{localStorage.setItem(SK,JSON.stringify(data));}catch(e){}}
+function key(){return year+"-"+month;}
+function items(){return data[key()]||[];}
+function cur(){return month===CM&&year===CY;}
+function s(arr,b){return arr.filter(i=>i.bucket===b).reduce((t,i)=>t+i.amount,0);}
+function isCourse(i){return i.bucket==="obligatoires"&&emoji(i.label)==="🛒";}
+
+function fmtDate(ds){
+  if(!ds)return null;
+  const d=new Date(ds),t=new Date();t.setHours(0,0,0,0);
+  const diff=Math.round((d-t)/86400000);
+  if(diff===0)return{l:"Aujourd'hui",u:true};
+  if(diff===1)return{l:"Demain",u:true};
+  if(diff===-1)return{l:"Hier",u:true};
+  if(diff<0)return{l:"En retard ("+Math.abs(diff)+"j)",u:true};
+  if(diff<=3)return{l:"Dans "+diff+"j",u:true};
+  return{l:d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"}),u:false};
+}
+
+// Modal
+function openModal(){
+  document.getElementById("modal-title").textContent="Ajouter — "+MONTHS[month];
+  document.getElementById("f-label").value="";
+  document.getElementById("f-amount").value="";
+  document.getElementById("f-bucket").value="obligatoires";
+  document.getElementById("f-date").value="";
+  document.getElementById("form-emoji").textContent="";
+  document.getElementById("modal").classList.add("open");
+  setTimeout(()=>document.getElementById("f-label").focus(),100);
+}
+function closeModal(){document.getElementById("modal").classList.remove("open");}
+function updateEmoji(){
+  const v=document.getElementById("f-label").value;
+  document.getElementById("form-emoji").textContent=v?emoji(v):"";
+}
+function submitForm(){
+  const label=document.getElementById("f-label").value.trim();
+  const amount=parseFloat(document.getElementById("f-amount").value);
+  const bucket=document.getElementById("f-bucket").value;
+  const dueDate=document.getElementById("f-date").value||null;
+  if(!label||!amount)return;
+  const k=key();
+  if(!data[k])data[k]=[];
+  data[k].push({id:Date.now().toString(),label,amount,bucket,dueDate,paid:false});
+  save();closeModal();render();
+}
+
+function togglePaid(id){
+  const k=key();
+  data[k]=data[k].map(i=>i.id===id?{...i,paid:!i.paid}:i);
+  save();render();
+}
+function del(id){
+  const k=key();
+  data[k]=data[k].filter(i=>i.id!==id);
+  save();render();
+}
+function addCourses(){
+  const inp=document.getElementById("ci");
+  const val=parseFloat(inp.value)||0;
+  if(!val)return;
+  const k=key();
+  if(!data[k])data[k]=[];
+  data[k].push({id:Date.now().toString(),label:"Courses",amount:val,bucket:"obligatoires",dueDate:null,paid:true});
+  save();render();
+}
+function setEspeces(){
+  const inp=document.getElementById("ei");
+  const val=parseFloat(inp.value)||0;
+  const k=key();
+  if(!data[k])data[k]=[];
+  const ex=data[k].find(i=>i.bucket==="especes");
+  if(ex)data[k]=data[k].map(i=>i.bucket==="especes"?{...i,amount:val}:i);
+  else data[k].push({id:Date.now().toString(),label:"Espèces",amount:val,bucket:"especes",dueDate:null,paid:false});
+  save();render();
+}
+function prevM(){if(month===0){month=11;year--;}else month--;render();}
+function nextM(){if(month===CM&&year===CY)return;if(month===11){month=0;year++;}else month++;render();}
+function setView(v){view=v;render();}
+function setTab(t){tab=t;render();}
+function goTab(t){tab=t;view="echeances";render();}
+
+function render(){
+  const its=items();
+  const isc=cur();
+  const tO=s(its,"obligatoires"),tL=s(its,"loisirs"),tEp=s(its,"epargne"),tEs=s(its,"especes");
+  const tEpAll=tEp+tEs,tDep=tO+tL,tC=its.filter(isCourse).reduce((t,i)=>t+i.amount,0);
+  const reste=REVENU-tDep-tEpAll;
+  const bO=Math.round(REVENU*.5),bL=Math.round(REVENU*.3),bEp=Math.round(REVENU*.2);
+  const pU=Math.min(100,Math.round(((tDep+tEpAll)/REVENU)*100));
+  const circ=2*Math.PI*52;
+
+  const hist=Object.entries(data).map(([k,its2])=>{
+    const [y,m]=k.split("-").map(Number);
+    return{month:SM[m],sk:y*12+m,
+      courses:Math.round(its2.filter(isCourse).reduce((t,i)=>t+i.amount,0)),
+      especes:its2.filter(i=>i.bucket==="especes").reduce((t,i)=>t+i.amount,0),
+      livret:its2.filter(i=>i.bucket==="epargne").reduce((t,i)=>t+i.amount,0)};
+  }).sort((a,b)=>a.sk-b.sk);
+  const cumul=Object.values(data).reduce((t,arr)=>t+arr.filter(i=>i.bucket==="especes").reduce((tt,i)=>tt+i.amount,0),0);
+
+  const BC={obligatoires:{bg:"#E8E4F3",ac:"#A89FD8"},loisirs:{bg:"#FDDCCC",ac:"#E8A98A"},epargne:{bg:"#D4EDDA",ac:"#7BC99A"},especes:{bg:"#FDFDE8",ac:"#D4B84A"}};
+
+  let h=`<div style="font-family:'DM Sans',sans-serif;background:#F7F6FC;min-height:100vh">
+  <div style="background:#fff;padding:14px 18px 0;position:sticky;top:0;z-index:10;box-shadow:0 1px 0 #EEEAF8">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div><div style="font-size:19px;font-weight:600">Mon Budget 💰</div><div style="font-size:12px;color:#9B97B8">${REVENU}€ / mois</div></div>
+      <button onclick="openModal()" style="background:#E8E4F3;color:#6B5FD8;border:none;border-radius:20px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">+ Ajouter</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
+      <button onclick="prevM()" style="border:none;background:#F0EEF8;border-radius:8px;width:28px;height:28px;font-size:15px;color:#6B5FD8;cursor:pointer">‹</button>
+      <div style="font-size:14px;font-weight:600;min-width:150px;text-align:center">${MONTHS[month]} ${year}${isc?' <span style="font-size:10px;background:#E8E4F3;color:#6B5FD8;border-radius:8px;padding:2px 7px">ce mois</span>':''}</div>
+      <button onclick="nextM()" style="border:none;background:${isc?'#F7F6FC':'#F0EEF8'};border-radius:8px;width:28px;height:28px;font-size:15px;color:${isc?'#C0BBD8':'#6B5FD8'};cursor:${isc?'default':'pointer'}">›</button>
+    </div>
+    <div style="display:flex">
+      ${[["dashboard","Accueil"],["echeances","Échéances"],["stats","Stats"]].map(([v,l])=>`<button onclick="setView('${v}')" class="tab-btn" style="font-weight:${view===v?600:400};color:${view===v?'#6B5FD8':'#9B97B8'};border-bottom-color:${view===v?'#A89FD8':'transparent'}">${l}</button>`).join("")}
+    </div>
+  </div>
+  <div style="padding:16px 16px 60px;max-width:500px;margin:0 auto">`;
+
+  // DASHBOARD
+  if(view==="dashboard"){
+    const pO=Math.min(100,Math.round((tO/bO)*100)),pL=Math.min(100,Math.round((tL/bL)*100));
+    const pC=Math.min(100,Math.round((tC/CMAX)*100));
+    const wL=bEp>0?Math.min(100,(tEp/bEp)*100):0,wE=bEp>0?Math.min(100-wL,(tEs/bEp)*100):0;
+    const pLiv=bEp>0?Math.min(100,Math.round((tEp/bEp)*100)):0;
+
+    h+=`<div style="background:#fff;border-radius:22px;padding:22px 20px;margin-bottom:14px;text-align:center;box-shadow:0 2px 12px rgba(168,159,216,0.1)">`;
+    if(its.length===0){h+=`<div style="padding:20px 0;color:#9B97B8;font-size:13px">Aucune donnée — ajoutez des dépenses !</div>`;}
+    else{
+      h+=`<svg width="130" height="130" viewBox="0 0 130 130" style="display:block;margin:0 auto 12px">
+        <circle cx="65" cy="65" r="52" fill="none" stroke="#EEEAF8" stroke-width="13"/>
+        <circle cx="65" cy="65" r="52" fill="none" stroke="url(#g1)" stroke-width="13" stroke-linecap="round" stroke-dasharray="${(pU/100)*circ} ${circ}" stroke-dashoffset="${circ/4}"/>
+        <defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#C4BDE8"/><stop offset="100%" stop-color="#E8A98A"/></linearGradient></defs>
+        <text x="65" y="60" text-anchor="middle" font-size="20" font-weight="600" fill="#3D3D5C">${(tDep+tEpAll).toFixed(0)}€</text>
+        <text x="65" y="77" text-anchor="middle" font-size="11" fill="#9B97B8">sur ${REVENU}€</text>
+      </svg>
+      <div style="display:flex;justify-content:space-around">
+        <div style="text-align:center"><div style="font-size:11px;color:#9B97B8;margin-bottom:2px">Dépensé</div><div style="font-size:16px;font-weight:600;color:#E8A98A">${tDep.toFixed(0)}€</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:#9B97B8;margin-bottom:2px">Épargné</div><div style="font-size:16px;font-weight:600;color:#7BC99A">${tEpAll.toFixed(0)}€</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:#9B97B8;margin-bottom:2px">Libre</div><div style="font-size:16px;font-weight:600;color:${reste>=0?'#A89FD8':'#E48FAA'}">${reste.toFixed(0)}€</div></div>
+      </div>`;
+    }
+    h+=`</div>`;
+
+    // Obligatoires
+    h+=`<div class="card" style="border-left:4px solid #A89FD8">
+    <div onclick="goTab('obligatoires')" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#E8E4F3;border-radius:10px;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px">🏠</div>
+          <div><div style="font-size:13px;font-weight:600">Dépenses obligatoires</div><div style="font-size:11px;color:#9B97B8">50% · budget ${bO}€</div></div>
+        </div>
+        <div style="text-align:right"><div style="font-size:16px;font-weight:600;color:${tO>bO?'#E48FAA':'#3D3D5C'}">${tO.toFixed(0)}€</div>${its.filter(i=>i.bucket==="obligatoires"&&!i.paid).length>0?`<div style="font-size:10px;color:#E8A98A">${its.filter(i=>i.bucket==="obligatoires"&&!i.paid).length} à payer</div>`:''}</div>
+      </div>
+      <div class="bar-bg" style="margin-bottom:4px"><div class="bar-fill" style="background:${tO>bO?'#E48FAA':'#A89FD8'};width:${pO}%"></div></div>
+      <div style="font-size:10px;color:#9B97B8;margin-bottom:12px">${pO}% · reste ${(bO-tO).toFixed(0)}€</div>
+    </div>
+    <div class="sub-card" style="background:#EFF6FF;border-color:#BFDBFE">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:7px"><span style="font-size:16px">🛒</span><div><div style="font-size:12px;font-weight:600;color:#3D4A5C">Courses</div><div style="font-size:10px;color:#5B8AC4">Objectif ${CMIN}–${CMAX}€</div></div></div>
+        <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:${tC>CMAX?'#E48FAA':tC>=CMIN?'#5B8AC4':'#3D3D5C'}">${tC.toFixed(0)}€</div><div style="font-size:9px;color:${tC>CMAX?'#E48FAA':'#7BAEE8'}">${tC>CMAX?'⚠️ +'+(tC-CMAX).toFixed(0)+'€':'reste '+(CMAX-tC).toFixed(0)+'€'}</div></div>
+      </div>
+      <div style="position:relative;height:6px;background:#DBEAFE;border-radius:3px;margin-bottom:${isc?'10px':'0'}">
+        <div style="height:6px;background:${tC>CMAX?'#E48FAA':'#7BAEE8'};border-radius:3px;width:${pC}%"></div>
+        <div style="position:absolute;left:${CMIN/CMAX*100}%;top:-2px;width:2px;height:10px;background:#3B82F6;border-radius:1px"></div>
+      </div>
+      ${isc?`<div style="display:flex;gap:6px;margin-top:10px"><input id="ci" type="number" placeholder="Ex: 45.50" style="flex:1;padding:7px 10px;border-radius:9px;border:1px solid #BFDBFE;font-size:13px;outline:none;color:#3D3D5C;background:#fff"/><button onclick="addCourses()" style="background:#7BAEE8;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Ajouter</button></div>`:''}
+    </div></div>`;
+
+    // Loisirs
+    h+=`<div class="card" onclick="goTab('loisirs')" style="border-left:4px solid #E8A98A;cursor:pointer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="background:#FDDCCC;border-radius:10px;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px">🎉</div>
+        <div><div style="font-size:13px;font-weight:600">Loisirs & envies</div><div style="font-size:11px;color:#9B97B8">30% · budget ${bL}€</div></div>
+      </div>
+      <div style="font-size:16px;font-weight:600;color:${tL>bL?'#E48FAA':'#3D3D5C'}">${tL.toFixed(0)}€</div>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" style="background:${tL>bL?'#E48FAA':'#E8A98A'};width:${pL}%"></div></div>
+    <div style="font-size:10px;color:#9B97B8;margin-top:4px">${pL}% · reste ${(bL-tL).toFixed(0)}€</div></div>`;
+
+    // Épargne
+    h+=`<div class="card" style="border-left:4px solid #7BC99A">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="background:#D4EDDA;border-radius:10px;width:35px;height:35px;display:flex;align-items:center;justify-content:center;font-size:16px">🌱</div>
+        <div><div style="font-size:13px;font-weight:600">Épargne</div><div style="font-size:11px;color:#9B97B8">20% · budget ${bEp}€</div></div>
+      </div>
+      <div style="text-align:right"><div style="font-size:16px;font-weight:600;color:${tEpAll>bEp?'#E48FAA':'#3D3D5C'}">${tEpAll.toFixed(0)}€</div><div style="font-size:10px;color:#9B97B8">reste ${(bEp-tEpAll).toFixed(0)}€</div></div>
+    </div>
+    <div style="height:8px;background:#F0EEF8;border-radius:4px;overflow:hidden;display:flex;margin-bottom:8px">
+      <div style="width:${wL}%;background:#7BC99A"></div><div style="width:${wE}%;background:#D4B84A"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div onclick="goTab('epargne')" class="sub-card" style="background:#F0FBF4;border-color:#C8E6D0;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span>🏦</span><span style="font-size:12px;font-weight:600;color:#3D5C42">Livret A</span></div>
+        <div style="font-size:16px;font-weight:700;color:#2D7A4A">${tEp.toFixed(0)}€</div>
+        <div style="margin-top:5px;height:4px;background:#C8E6D0;border-radius:2px"><div style="height:4px;background:#7BC99A;border-radius:2px;width:${pLiv}%"></div></div>
+        <div style="font-size:9px;color:#6B9C78;margin-top:3px">${pLiv}% du budget</div>
+      </div>
+      <div onclick="goTab('especes')" class="sub-card" style="background:#FDFDE8;border-color:#EDE87A;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span>💵</span><span style="font-size:12px;font-weight:600;color:#5C4D10">Espèces</span></div>
+        <div style="font-size:16px;font-weight:700;color:#7A6A10">${tEs.toFixed(0)}€</div>
+        <div style="font-size:9px;color:#9B8A20;margin-top:4px">Cumul : ${cumul.toFixed(0)}€</div>
+      </div>
+    </div>
+    ${isc?`<div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:12px;color:#9B8A20;white-space:nowrap">💵 Ce mois :</span>
+      <input id="ei" type="number" placeholder="0" value="${tEs>0?tEs:''}" style="flex:1;padding:7px 10px;border-radius:9px;border:1px solid #D4B84A;font-size:13px;outline:none;color:#3D3D5C;background:#fff"/>
+      <button onclick="setEspeces()" style="background:#D4B84A;color:#fff;border:none;border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer">OK</button>
+    </div>`:''}
+    </div>`;
+
+    // Échéances
+    const up=its.filter(i=>!i.paid&&i.dueDate).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate)).slice(0,5);
+    if(up.length>0){
+      h+=`<div style="font-size:12px;font-weight:600;color:#9B97B8;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 10px">⏰ Prochaines échéances</div>`;
+      up.forEach(i=>{
+        const d=fmtDate(i.dueDate),bc=BC[i.bucket]||BC.obligatoires;
+        h+=`<div style="background:${d&&d.u?'#FFF8F5':'#fff'};border-radius:13px;padding:11px 15px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;border:1px solid ${d&&d.u?'#FDDCCC':'#F0EEF8'}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:${bc.bg};border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:15px">${emoji(i.label)}</div>
+          <div><div style="font-size:13px;font-weight:500">${i.label}</div><div style="font-size:11px;color:${d&&d.u?'#E8A98A':'#9B97B8'}">${d?d.l:''}</div></div>
+        </div>
+        <div style="font-size:14px;font-weight:600">${i.amount.toFixed(2)}€</div></div>`;
+      });
+    }
+  }
+
+  // ÉCHÉANCES
+  else if(view==="echeances"){
+    const tabs=[{k:"obligatoires",l:"🏠 Obligatoires",c:"#E8E4F3",a:"#A89FD8"},{k:"loisirs",l:"🎉 Loisirs",c:"#FDDCCC",a:"#E8A98A"},{k:"epargne",l:"🏦 Livret A",c:"#D4EDDA",a:"#7BC99A"},{k:"especes",l:"💵 Espèces",c:"#FDFDE8",a:"#D4B84A"}];
+    h+=`<div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">`;
+    tabs.forEach(t=>h+=`<button onclick="setTab('${t.k}')" class="nav-pill" style="background:${tab===t.k?t.c:'#fff'};color:${tab===t.k?'#3D3D5C':'#9B97B8'};border-color:${tab===t.k?t.a:'#F0EEF8'}">${t.l}</button>`);
+    h+=`</div>`;
+    const bc=BC[tab],list=its.filter(i=>i.bucket===tab).sort((a,b)=>{if(a.paid!==b.paid)return a.paid?1:-1;if(a.dueDate&&b.dueDate)return new Date(a.dueDate)-new Date(b.dueDate);return 0;});
+    const spent=list.reduce((t,i)=>t+i.amount,0);
+    const budget=tab==="obligatoires"?bO:tab==="loisirs"?bL:tab==="epargne"?bEp:null;
+    const lbl=tab==="epargne"?"🏦 Livret A":tabs.find(t=>t.k===tab).l;
+    h+=`<div style="background:${bc.bg};border-radius:14px;padding:13px 15px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:13px;font-weight:600">${lbl}</div><div style="font-size:11px;color:#6B5F8A">${budget?'Budget '+budget+'€':'Épargne libre · Cumul '+cumul.toFixed(0)+'€'}</div></div>
+    <div style="text-align:right"><div style="font-size:17px;font-weight:600;color:${budget&&spent>budget?'#E48FAA':'#3D3D5C'}">${spent.toFixed(0)}€</div>${budget?`<div style="font-size:11px;color:#6B5F8A">reste ${(budget-spent).toFixed(0)}€</div>`:''}</div></div>`;
+    list.forEach(i=>{
+      const d=i.dueDate?fmtDate(i.dueDate):null;
+      h+=`<div class="item-row" style="background:${i.paid?'#FAFAFA':'#fff'};box-shadow:${i.paid?'none':'0 1px 5px rgba(0,0,0,0.05)'};border:1px solid ${i.paid?'#F0EEF8':'transparent'}">
+      <button onclick="togglePaid('${i.id}')" class="check-btn" style="border-color:${i.paid?bc.ac:'#D0CBE8'};background:${i.paid?bc.ac:'transparent'}">${i.paid?'<span style="color:#fff;font-size:11px">✓</span>':''}</button>
+      <div style="font-size:19px;flex-shrink:0">${emoji(i.label)}</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500;color:${i.paid?'#9B97B8':'#3D3D5C'};text-decoration:${i.paid?'line-through':'none'}">${i.label}</div>${d?`<div style="font-size:11px;color:${d.u&&!i.paid?'#E8A98A':'#9B97B8'}">${d.l}</div>`:''}</div>
+      <div style="font-size:14px;font-weight:600;color:${i.paid?'#9B97B8':'#3D3D5C'}">${i.amount.toFixed(2)}€</div>
+      ${isc?`<button onclick="del('${i.id}')" class="del-btn">×</button>`:''}
+      </div>`;
+    });
+    if(list.length===0)h+=`<div style="text-align:center;color:#9B97B8;padding:36px">Aucun élément pour ce mois.</div>`;
+  }
+
+  // STATS
+  else{
+    const pie=[{l:"Obligatoires",v:tO,c:"#A89FD8"},{l:"Loisirs",v:tL,c:"#E8A98A"},{l:"Livret A",v:tEp,c:"#7BC99A"},{l:"Espèces",v:tEs,c:"#D4B84A"}].filter(x=>x.v>0);
+    const tot=pie.reduce((t,x)=>t+x.v,0)||1;
+    h+=`<div style="background:#fff;border-radius:20px;padding:20px 16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(168,159,216,0.08)">
+    <div style="font-size:12px;font-weight:600;color:#9B97B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Répartition — ${MONTHS[month]}</div>`;
+    if(pie.length===0)h+=`<div style="text-align:center;color:#9B97B8;padding:20px">Aucune donnée</div>`;
+    else pie.forEach(x=>h+=`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:6px"><div style="width:10px;height:10px;border-radius:50%;background:${x.c}"></div>${x.l}</div><strong>${x.v.toFixed(0)}€ (${Math.round(x.v/tot*100)}%)</strong></div><div class="bar-bg"><div class="bar-fill" style="background:${x.c};width:${Math.round(x.v/tot*100)}%"></div></div></div>`);
+    h+=`</div>`;
+
+    h+=`<div style="background:#fff;border-radius:20px;padding:20px 16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(168,159,216,0.08)">
+    <div style="font-size:12px;font-weight:600;color:#9B97B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Objectifs 50/30/20</div>`;
+    [{l:"🏠 Obligatoires",b:bO,sp:tO,c:"#A89FD8"},{l:"🎉 Loisirs",b:bL,sp:tL,c:"#E8A98A"},{l:"🌱 Épargne (total)",b:bEp,sp:tEpAll,c:"#7BC99A"}].forEach(x=>{
+      const p=Math.min(100,Math.round((x.sp/x.b)*100)),ov=x.sp>x.b;
+      h+=`<div style="margin-bottom:15px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;font-weight:500">${x.l}</span><span style="font-size:13px;font-weight:600;color:${ov?'#E48FAA':'#3D3D5C'}">${x.sp.toFixed(0)}€ <span style="color:#9B97B8;font-weight:400">/ ${x.b}€</span></span></div><div class="bar-bg"><div class="bar-fill" style="background:${ov?'#E48FAA':x.c};width:${p}%"></div></div><div style="font-size:10px;color:${ov?'#E48FAA':'#9B97B8'};margin-top:3px">${ov?'⚠️ Dépassement de '+(x.sp-x.b).toFixed(0)+'€':p+'% · reste '+(x.b-x.sp).toFixed(0)+'€'}</div></div>`;
+    });
+    h+=`</div>`;
+
+    // Courses histo
+    h+=`<div style="background:#EFF6FF;border-radius:20px;padding:20px 16px;margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:#5B8AC4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">🛒 Courses · ${CMIN}–${CMAX}€</div><div style="display:flex;align-items:flex-end;gap:6px;height:80px">`;
+    hist.forEach((m2,i)=>{const hh=m2.courses>0?Math.max(8,Math.round((m2.courses/CMAX)*72)):4;h+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="font-size:9px;color:#5B8AC4;font-weight:600">${m2.courses>0?m2.courses+'€':''}</div><div style="width:100%;background:${i===hist.length-1?'#7BAEE8':'#BFDBFE'};border-radius:4px 4px 0 0;height:${hh}px"></div><div style="font-size:9px;color:#7BAEE8">${m2.month}</div></div>`;});
+    h+=`</div></div>`;
+
+    // Épargne histo
+    h+=`<div style="background:#F0FBF4;border-radius:20px;padding:20px 16px;border:1px solid #C8E6D0"><div style="font-size:12px;font-weight:600;color:#3D5C42;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">🌱 Épargne · cumul espèces ${cumul.toFixed(0)}€</div><div style="display:flex;align-items:flex-end;gap:6px;height:80px">`;
+    const maxEp=Math.max(...hist.map(x=>x.livret+x.especes),1);
+    hist.forEach((m2,i)=>{const hL=m2.livret>0?Math.max(4,Math.round((m2.livret/maxEp)*72)):0,hE=m2.especes>0?Math.max(4,Math.round((m2.especes/maxEp)*72)):0;h+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:100%;display:flex;flex-direction:column;align-items:stretch;gap:1px"><div style="background:${i===hist.length-1?'#7BC99A':'#C8E6D0'};border-radius:3px 3px 0 0;height:${hL}px"></div><div style="background:${i===hist.length-1?'#D4B84A':'#EDE87A'};height:${hE}px"></div></div><div style="font-size:9px;color:#6B9C78">${m2.month}</div></div>`;});
+    h+=`</div><div style="display:flex;justify-content:center;gap:16px;margin-top:8px"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#3D5C42"><div style="width:9px;height:9px;border-radius:50%;background:#7BC99A"></div>Livret A</div><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7A6A10"><div style="width:9px;height:9px;border-radius:50%;background:#D4B84A"></div>Espèces</div></div></div>`;
+  }
+
+  h+=`</div></div>`;
+  document.getElementById("app").innerHTML=h;
+}
+
+render();
+</script>
+</body>
+</html>
